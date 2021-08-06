@@ -47,3 +47,34 @@ You can print the value of variables and/or the result of an expression
 var name = "Mister Glox"
 print "Hello, " + name
 ```
+
+## Sample code
+This is a sample of a valid program that can be currently executed with the 'glox' interpreter:
+```
+var a = "global a";
+var b = "global b";
+var c = "global c";
+
+{
+    var a = "outer a";
+    var b = "outer b";
+    {
+        var a = "inner a";
+        print a;
+        print b;
+        print c;
+        print a + ", " + b + ", " + c;
+    }
+    print a;
+    print b;
+    print c;
+    print a + ", " + b + ", " + c;
+}
+print a;
+print b;
+print c;
+print a + ", " + b + ", " + c;
+
+print (12 + 23) * 24 / 12 + 1;
+print "hello my name is jeff";
+```
