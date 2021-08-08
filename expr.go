@@ -10,6 +10,12 @@ type ExprBinary struct {
 	Right    Expr
 }
 
+type ExprLogical struct {
+	Operator Token
+	Left     Expr
+	Right    Expr
+}
+
 type ExprGrouping struct {
 	Expression Expr
 }
@@ -30,6 +36,10 @@ type ExprVariable struct {
 type ExprUnary struct {
 	Operator Token
 	Right    Expr
+}
+
+func (expr ExprLogical) accept(visitor ExprVisitor) (interface{}, error) {
+	return visitor.VisitExprLogical(expr)
 }
 
 func (expr ExprAssign) accept(visitor ExprVisitor) (interface{}, error) {

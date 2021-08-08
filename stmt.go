@@ -4,6 +4,17 @@ type Stmt interface {
 	accept(visitor StmtVisitor) error
 }
 
+type StmtWhile struct {
+	Condition Expr
+	Body      Stmt
+}
+
+type StmtIf struct {
+	Condition  Expr
+	ThenBranch Stmt
+	ElseBranch Stmt
+}
+
 type StmtBlock struct {
 	Statements []Stmt
 }
@@ -19,6 +30,14 @@ type StmtExpression struct {
 
 type StmtPrint struct {
 	Expression Expr
+}
+
+func (stmt StmtWhile) accept(visitor StmtVisitor) error {
+	return visitor.VisitStmtWhile(stmt)
+}
+
+func (stmt StmtIf) accept(visitor StmtVisitor) error {
+	return visitor.VisitStmtIf(stmt)
 }
 
 func (stmt StmtBlock) accept(visitor StmtVisitor) error {

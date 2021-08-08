@@ -71,6 +71,37 @@ func (intr *Interpreter) evaluate(expr Expr) (interface{}, error) {
 	return expr.accept(intr)
 }
 
+func (intr *Interpreter) VisitStmtWhile(stmt StmtWhile) error {
+	for {
+		value, err := intr.evaluate(stmt.Condition)
+		if err != nil {
+			return err
+		}
+
+		if !intr.isTruthy(value) {
+			return nil
+		}
+
+		if err := intr.execute(stmt.Body); err != nil {
+			return err
+		}
+	}
+}
+
+func (intr *Interpreter) VisitStmtIf(stmt StmtIf) error {
+	value, err := intr.evaluate(stmt.Condition)
+
+	if err != nil {
+		return err
+	} else if intr.isTruthy(value) {
+		return intr.execute(stmt.ThenBranch)
+	} else if stmt.ElseBranch != nil {
+		return intr.execute(stmt.ElseBranch)
+	} else {
+		return nil
+	}
+}
+
 func (intr *Interpreter) VisitStmtBlock(stmt StmtBlock) error {
 	return intr.executeBlock(stmt.Statements, NewEnvironment(intr.environment))
 }
@@ -103,6 +134,23 @@ func (intr *Interpreter) VisitStmtPrint(stmt StmtPrint) error {
 func (intr *Interpreter) VisitStmtExpression(stmt StmtExpression) error {
 	_, err := intr.evaluate(stmt.Expression)
 	return err
+}
+
+func (intr *Interpreter) VisitExprLogical(expr ExprLogical) (interface{}, error) {
+	left, err := intr.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if expr.Operator.TokenType == OR && intr.isTruthy(left) {
+		return left, nil
+	}
+
+	if expr.Operator.TokenType == AND && !intr.isTruthy(left) {
+		return left, nil
+	}
+
+	return intr.evaluate(expr.Right)
 }
 
 func (intr *Interpreter) VisitExprAssign(expr ExprAssign) (interface{}, error) {

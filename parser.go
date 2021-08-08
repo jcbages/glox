@@ -96,7 +96,13 @@ func (parser *Parser) block() ([]Stmt, error) {
 }
 
 func (parser *Parser) statement() (Stmt, error) {
-	if parser.match(PRINT) {
+	if parser.match(FOR) {
+		return parser.forStatement()
+	} else if parser.match(WHILE) {
+		return parser.whileStatement()
+	} else if parser.match(IF) {
+		return parser.ifStatement()
+	} else if parser.match(PRINT) {
 		return parser.printStatement()
 	} else if parser.match(LEFT_BRACE) {
 		statements, err := parser.block()
@@ -108,6 +114,144 @@ func (parser *Parser) statement() (Stmt, error) {
 	} else {
 		return parser.expressionStatement()
 	}
+}
+
+func (parser *Parser) forStatement() (Stmt, error) {
+	var err error
+	if _, err := parser.consume(LEFT_PAREN, "Expected '(' after while"); err != nil {
+		return nil, err
+	}
+
+	var initializer Stmt
+	if parser.match(VAR) {
+		initializer, err = parser.varDeclarationStatement()
+		if err != nil {
+			return nil, err
+		}
+	} else if !parser.match(SEMICOLON) {
+		initializer, err = parser.expressionStatement()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var condition Expr
+	if !parser.match(SEMICOLON) {
+		condition, err = parser.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := parser.consume(SEMICOLON, "Expected ';' after condition"); err != nil {
+		return nil, err
+	}
+
+	var increment Expr
+	if !parser.match(RIGHT_PAREN) {
+		increment, err = parser.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := parser.consume(SEMICOLON, "Expected ')' after increment"); err != nil {
+		return nil, err
+	}
+
+	body, err := parser.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	// De-sugarize the for-loop into a while-loop
+
+	if increment != nil {
+		body = StmtBlock{
+			Statements: []Stmt{
+				body,
+				StmtExpression{Expression: increment},
+			},
+		}
+	}
+
+	if condition == nil {
+		condition = ExprLiteral{Value: true}
+	}
+	body = StmtWhile{
+		Condition: condition,
+		Body:      body,
+	}
+
+	if initializer != nil {
+		body = StmtBlock{
+			Statements: []Stmt{
+				initializer,
+				body,
+			},
+		}
+	}
+
+	return body, nil
+}
+
+func (parser *Parser) whileStatement() (Stmt, error) {
+	if _, err := parser.consume(LEFT_PAREN, "Expected '(' after while"); err != nil {
+		return nil, err
+	}
+
+	condition, err := parser.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := parser.consume(RIGHT_PAREN, "Expected ')' after expression"); err != nil {
+		return nil, err
+	}
+
+	body, err := parser.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	return StmtWhile{
+		Condition: condition,
+		Body:      body,
+	}, nil
+}
+
+func (parser *Parser) ifStatement() (Stmt, error) {
+	if _, err := parser.consume(LEFT_PAREN, "Expected '(' after if"); err != nil {
+		return nil, err
+	}
+
+	condition, err := parser.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := parser.consume(RIGHT_PAREN, "Expected ')' after expression"); err != nil {
+		return nil, err
+	}
+
+	thenBranch, err := parser.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	var elseBranch Stmt
+	if parser.match(ELSE) {
+		elseBranch, err = parser.statement()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return StmtIf{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch,
+	}, nil
 }
 
 func (parser *Parser) printStatement() (Stmt, error) {
@@ -140,7 +284,7 @@ func (parser *Parser) expression() (Expr, error) {
 	return parser.comma()
 }
 
-func (parser *Parser) binary(operand func() (Expr, error), tokenTypes ...TokenType) (Expr, error) {
+func (parser *Parser) binary(operand func() (Expr, error), isLogical bool, tokenTypes ...TokenType) (Expr, error) {
 	expr, err := operand()
 	if err != nil {
 		return nil, err
@@ -153,10 +297,18 @@ func (parser *Parser) binary(operand func() (Expr, error), tokenTypes ...TokenTy
 			return nil, err
 		}
 
-		expr = ExprBinary{
-			Operator: operator,
-			Left:     expr,
-			Right:    right,
+		if isLogical {
+			expr = ExprLogical{
+				Operator: operator,
+				Left:     expr,
+				Right:    right,
+			}
+		} else {
+			expr = ExprBinary{
+				Operator: operator,
+				Left:     expr,
+				Right:    right,
+			}
 		}
 	}
 
@@ -200,11 +352,11 @@ func (parser *Parser) previous() Token {
 }
 
 func (parser *Parser) comma() (Expr, error) {
-	return parser.binary(parser.assignment, COMMA)
+	return parser.binary(parser.assignment, false, COMMA)
 }
 
 func (parser *Parser) assignment() (Expr, error) {
-	expr, err := parser.equality()
+	expr, err := parser.or()
 	if err != nil {
 		return nil, err
 	}
@@ -230,20 +382,28 @@ func (parser *Parser) assignment() (Expr, error) {
 	}
 }
 
+func (parser *Parser) or() (Expr, error) {
+	return parser.binary(parser.and, true, OR)
+}
+
+func (parser *Parser) and() (Expr, error) {
+	return parser.binary(parser.equality, true, AND)
+}
+
 func (parser *Parser) equality() (Expr, error) {
-	return parser.binary(parser.comparison, BANG_EQUAL, EQUAL_EQUAL)
+	return parser.binary(parser.comparison, false, BANG_EQUAL, EQUAL_EQUAL)
 }
 
 func (parser *Parser) comparison() (Expr, error) {
-	return parser.binary(parser.term, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)
+	return parser.binary(parser.term, false, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)
 }
 
 func (parser *Parser) term() (Expr, error) {
-	return parser.binary(parser.factor, MINUS, PLUS)
+	return parser.binary(parser.factor, false, MINUS, PLUS)
 }
 
 func (parser *Parser) factor() (Expr, error) {
-	return parser.binary(parser.unary, STAR, SLASH)
+	return parser.binary(parser.unary, false, STAR, SLASH)
 }
 
 func (parser *Parser) unary() (Expr, error) {

@@ -27,6 +27,10 @@ func (ast *AstPrinter) print(statements []Stmt) string {
 	return sb.String()
 }
 
+func (ast *AstPrinter) VisitExprLogical(expr ExprLogical) (interface{}, error) {
+	return ast.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
+}
+
 func (ast *AstPrinter) VisitExprBinary(expr ExprBinary) (interface{}, error) {
 	return ast.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
 }
