@@ -33,19 +33,80 @@ Use operators like `*`, `/`, `+`, and `-` to perform calculations
 ### Variables
 You can store a piece of data to recall later using variables
 ```
-var a = 10
-var b = a + 10 // b = 20
+var a = 10;
+var b = a + 10; // b = 20
 ...
-a = 12
+a = 12;
 ...
-var c = a + 10 // c = 22
+var c = a + 10; // c = 22
 ```
 
 ### Print
 You can print the value of variables and/or the result of an expression
 ```
 var name = "Mister Glox"
-print "Hello, " + name
+print "Hello, " + name;
+```
+
+### Conditionals
+You can execute a piece of code if and only if a certain condition is true
+```
+if (10 > 2) {
+    print "Yes 10 is larger than 2 as it should be";
+} else {
+    print "This is not what I expected";
+}
+```
+
+### While loops
+You can execute a piece of code multiple times using a while loop
+```
+var i = 0;
+while (i < 10) {
+    print "Value of i => " + i;
+    i = i + 1;
+}
+```
+
+### For loops
+Similar to while loops, for loops will execute a piece of code multiple times but they 
+have a shorter "syntactic sugar" shape
+```
+for (var i = 0; i < 10; i = i + 1) {
+    print "Value of i => " + i;
+}
+```
+
+### Functions
+You can reuse a piece of code by creating a function
+```
+fun fibonacci(n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }
+}
+...
+print fibonacci(5); // 8
+```
+
+### Closures
+You can make functions that return other functions using closures
+```
+fun makeCounter() {
+    var i = 0;
+
+    fun count() {
+        i = i + 1;
+        print "Value of i => " + i;
+    }
+    return count
+}
+...
+counter = makeCounter()
+counter() // 1
+counter() // 2
 ```
 
 ## Sample code
