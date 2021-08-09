@@ -4,6 +4,12 @@ type Expr interface {
 	accept(visitor ExprVisitor) (interface{}, error)
 }
 
+type ExprCall struct {
+	Callee    Expr
+	Paren     Token
+	Arguments []Expr
+}
+
 type ExprBinary struct {
 	Operator Token
 	Left     Expr
@@ -36,6 +42,10 @@ type ExprVariable struct {
 type ExprUnary struct {
 	Operator Token
 	Right    Expr
+}
+
+func (expr ExprCall) accept(visitor ExprVisitor) (interface{}, error) {
+	return visitor.VisitExprCall(expr)
 }
 
 func (expr ExprLogical) accept(visitor ExprVisitor) (interface{}, error) {

@@ -4,6 +4,12 @@ type Stmt interface {
 	accept(visitor StmtVisitor) error
 }
 
+type StmtFunction struct {
+	Name       Token
+	Parameters []Token
+	Body       []Stmt
+}
+
 type StmtWhile struct {
 	Condition Expr
 	Body      Stmt
@@ -32,6 +38,15 @@ type StmtPrint struct {
 	Expression Expr
 }
 
+type StmtReturn struct {
+	Keyword    Token
+	Expression Expr
+}
+
+func (stmt StmtFunction) accept(visitor StmtVisitor) error {
+	return visitor.VisitStmtFunction(stmt)
+}
+
 func (stmt StmtWhile) accept(visitor StmtVisitor) error {
 	return visitor.VisitStmtWhile(stmt)
 }
@@ -54,4 +69,8 @@ func (stmt StmtExpression) accept(visitor StmtVisitor) error {
 
 func (stmt StmtPrint) accept(visitor StmtVisitor) error {
 	return visitor.VisitStmtPrint(stmt)
+}
+
+func (stmt StmtReturn) accept(visitor StmtVisitor) error {
+	return visitor.VisitStmtReturn(stmt)
 }

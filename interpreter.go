@@ -12,17 +12,31 @@ type RuntimeError struct {
 	Message string
 }
 
+type Return struct {
+	Value interface{}
+}
+
 func (err RuntimeError) Error() string {
 	return err.Message
 }
 
+func (err Return) Error() string {
+	return ""
+}
+
 type Interpreter struct {
+	globals     *Environment
 	environment *Environment
 }
 
 func NewInterpreter() *Interpreter {
+	// global env
+	global := NewEnvironment(nil)
+	global.Define("clock", ClockLoxCallable{})
+
 	return &Interpreter{
-		environment: NewEnvironment(nil),
+		globals:     global,
+		environment: global,
 	}
 }
 
@@ -69,6 +83,24 @@ func (intr *Interpreter) execute(stmt Stmt) error {
 
 func (intr *Interpreter) evaluate(expr Expr) (interface{}, error) {
 	return expr.accept(intr)
+}
+
+func (intr *Interpreter) VisitStmtReturn(stmt StmtReturn) error {
+	value, err := intr.evaluate(stmt.Expression)
+	if err != nil {
+		return err
+	}
+
+	return Return{Value: value}
+}
+
+func (intr *Interpreter) VisitStmtFunction(stmt StmtFunction) error {
+	function := FunctionLoxCallable{
+		closure:     intr.environment,
+		declaration: stmt,
+	}
+	intr.environment.Define(stmt.Name.Lexeme, function)
+	return nil
 }
 
 func (intr *Interpreter) VisitStmtWhile(stmt StmtWhile) error {
@@ -136,6 +168,39 @@ func (intr *Interpreter) VisitStmtExpression(stmt StmtExpression) error {
 	return err
 }
 
+func (intr *Interpreter) VisitExprCall(expr ExprCall) (interface{}, error) {
+	callee, err := intr.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+
+	var arguments []interface{}
+	for _, arg := range expr.Arguments {
+		value, err := intr.evaluate(arg)
+		if err != nil {
+			return nil, err
+		}
+
+		arguments = append(arguments, value)
+	}
+
+	if f, ok := callee.(LoxCallable); ok {
+		if f.Arity() == len(arguments) {
+			return f.Call(intr, arguments)
+		} else {
+			return nil, RuntimeError{
+				Token:   expr.Paren,
+				Message: fmt.Sprintf("Expected %v arguments but got %v instead", f.Arity(), len(arguments)),
+			}
+		}
+	} else {
+		return nil, RuntimeError{
+			Token:   expr.Paren,
+			Message: "Can only call functions and classes",
+		}
+	}
+}
+
 func (intr *Interpreter) VisitExprLogical(expr ExprLogical) (interface{}, error) {
 	left, err := intr.evaluate(expr.Left)
 	if err != nil {
@@ -201,10 +266,10 @@ func (intr *Interpreter) VisitExprBinary(expr ExprBinary) (interface{}, error) {
 			return f1 + f2, nil
 		}
 
-		s1, ok1 := left.(string)
-		s2, ok2 := right.(string)
-		if ok1 && ok2 {
-			return s1 + s2, nil
+		_, ok1 = left.(string)
+		_, ok2 = right.(string)
+		if ok1 || ok2 {
+			return fmt.Sprintf("%v%v", left, right), nil
 		}
 	// Comparisons
 	case GREATER:

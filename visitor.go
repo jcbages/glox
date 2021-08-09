@@ -8,6 +8,7 @@ type ExprVisitor interface {
 	VisitExprUnary(expr ExprUnary) (interface{}, error)
 	VisitExprAssign(expr ExprAssign) (interface{}, error)
 	VisitExprLogical(expr ExprLogical) (interface{}, error)
+	VisitExprCall(expr ExprCall) (interface{}, error)
 }
 
 type StmtVisitor interface {
@@ -15,6 +16,8 @@ type StmtVisitor interface {
 	VisitStmtExpression(stmt StmtExpression) error
 	VisitStmtPrint(stmt StmtPrint) error
 	VisitStmtBlock(stmt StmtBlock) error
+	VisitStmtFunction(stmt StmtFunction) error
+	VisitStmtReturn(stmt StmtReturn) error
 	VisitStmtWhile(stmt StmtWhile) error
 	VisitStmtIf(stmt StmtIf) error
 }

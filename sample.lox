@@ -26,7 +26,39 @@ print (12 + 23) * 24 / 12 + 1;
 print "hello my name is jeff";
 
 if (10 > 0) {
-    print "10 is larger than 0";
+    print clock();
 } else {
     print "nope";
 }
+
+fun fib(n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return fib(n-1) + fib(n-2);
+    }
+}
+
+var start = clock();
+print "START" + " " + start;
+for (var i = 0; i < 30; i = i+1) {
+    print "fib " + i + " = " + fib(i);
+}
+var end = clock();
+print "END" + " " + end;
+var total = (end - start);
+print "total execution time = " + total + " seconds";
+
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print "VALUE OF I -> " + i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter(); // "1".
+counter(); // "2".

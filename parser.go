@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+const ARGUMENTS_LIMIT = 255
+
 type Parser struct {
 	Tokens  []Token
 	current int
@@ -20,7 +22,6 @@ func NewParser(tokens []Token) *Parser {
 func (parser *Parser) Parse() ([]Stmt, error) {
 	var statements []Stmt
 	for !parser.isAtEnd() {
-		fmt.Printf("NEXT TOKEN %v\n", parser.peek())
 		stmt, err := parser.declaration()
 		if err != nil {
 			return nil, err
@@ -33,8 +34,19 @@ func (parser *Parser) Parse() ([]Stmt, error) {
 }
 
 func (parser *Parser) declaration() (Stmt, error) {
-	if parser.match(VAR) {
-		stmt, err := parser.varDeclarationStatement()
+	var stmt Stmt
+	var err error
+
+	if parser.match(FUN) {
+		stmt, err = parser.funDeclarationStatement("function")
+		if err != nil {
+			parser.synchronize()
+			return nil, err
+		} else {
+			return stmt, nil
+		}
+	} else if parser.match(VAR) {
+		stmt, err = parser.varDeclarationStatement()
 		if err != nil {
 			parser.synchronize()
 			return nil, err
@@ -43,13 +55,65 @@ func (parser *Parser) declaration() (Stmt, error) {
 		}
 	}
 
-	stmt, err := parser.statement()
+	stmt, err = parser.statement()
 	if err != nil {
 		parser.synchronize()
 		return nil, err
 	} else {
 		return stmt, nil
 	}
+}
+
+func (parser *Parser) funDeclarationStatement(key string) (Stmt, error) {
+	name, err := parser.consume(IDENTIFIER, fmt.Sprintf("Expected %v name", key))
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := parser.consume(LEFT_PAREN, "Expected '(' after identifier"); err != nil {
+		return nil, err
+	}
+
+	var parameters []Token
+	if !parser.check(RIGHT_PAREN) {
+		for {
+			param, err := parser.consume(IDENTIFIER, "Expected identifier in argument list")
+			if err != nil {
+				return nil, err
+			}
+
+			parameters = append(parameters, param)
+
+			if !parser.match(COMMA) {
+				break
+			}
+		}
+	}
+
+	if len(parameters) >= ARGUMENTS_LIMIT {
+		LoxTokenError(parser.peek(), fmt.Sprintf("Can't have more than %v arguments", ARGUMENTS_LIMIT))
+	}
+
+	_, err = parser.consume(RIGHT_PAREN, "Expected ')' after arguments list")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = parser.consume(LEFT_BRACE, "Expected '{' after arguments list")
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := parser.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return StmtFunction{
+		Name:       name,
+		Parameters: parameters,
+		Body:       body,
+	}, nil
 }
 
 func (parser *Parser) varDeclarationStatement() (Stmt, error) {
@@ -96,7 +160,9 @@ func (parser *Parser) block() ([]Stmt, error) {
 }
 
 func (parser *Parser) statement() (Stmt, error) {
-	if parser.match(FOR) {
+	if parser.match(RETURN) {
+		return parser.returnStatement()
+	} else if parser.match(FOR) {
 		return parser.forStatement()
 	} else if parser.match(WHILE) {
 		return parser.whileStatement()
@@ -116,6 +182,28 @@ func (parser *Parser) statement() (Stmt, error) {
 	}
 }
 
+func (parser *Parser) returnStatement() (Stmt, error) {
+	keyword := parser.previous()
+
+	var expr Expr
+	var err error
+	if !parser.check(SEMICOLON) {
+		expr, err = parser.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := parser.consume(SEMICOLON, "Expected ';' after condition"); err != nil {
+		return nil, err
+	}
+
+	return StmtReturn{
+		Keyword:    keyword,
+		Expression: expr,
+	}, nil
+}
+
 func (parser *Parser) forStatement() (Stmt, error) {
 	var err error
 	if _, err := parser.consume(LEFT_PAREN, "Expected '(' after while"); err != nil {
@@ -128,7 +216,7 @@ func (parser *Parser) forStatement() (Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else if !parser.match(SEMICOLON) {
+	} else if !parser.check(SEMICOLON) {
 		initializer, err = parser.expressionStatement()
 		if err != nil {
 			return nil, err
@@ -136,7 +224,7 @@ func (parser *Parser) forStatement() (Stmt, error) {
 	}
 
 	var condition Expr
-	if !parser.match(SEMICOLON) {
+	if !parser.check(SEMICOLON) {
 		condition, err = parser.expression()
 		if err != nil {
 			return nil, err
@@ -148,14 +236,14 @@ func (parser *Parser) forStatement() (Stmt, error) {
 	}
 
 	var increment Expr
-	if !parser.match(RIGHT_PAREN) {
+	if !parser.check(RIGHT_PAREN) {
 		increment, err = parser.expression()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if _, err := parser.consume(SEMICOLON, "Expected ')' after increment"); err != nil {
+	if _, err := parser.consume(RIGHT_PAREN, "Expected ')' after increment"); err != nil {
 		return nil, err
 	}
 
@@ -335,7 +423,7 @@ func (parser *Parser) check(tokenType TokenType) bool {
 }
 
 func (parser *Parser) isAtEnd() bool {
-	return parser.Tokens[parser.current].TokenType == EOF
+	return parser.current >= len(parser.Tokens) || parser.Tokens[parser.current].TokenType == EOF
 }
 
 func (parser *Parser) advance() Token {
@@ -415,8 +503,57 @@ func (parser *Parser) unary() (Expr, error) {
 			Right:    right,
 		}, err
 	} else {
-		return parser.primary()
+		return parser.call()
 	}
+}
+
+func (parser *Parser) call() (Expr, error) {
+	expr, err := parser.primary()
+	if err != nil {
+		return nil, err
+	}
+
+	for parser.match(LEFT_PAREN) {
+		expr, err = parser.finishCall(expr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return expr, nil
+}
+
+func (parser *Parser) finishCall(callee Expr) (Expr, error) {
+	var arguments []Expr
+	if !parser.check(RIGHT_PAREN) {
+		for {
+			arg, err := parser.expression()
+			if err != nil {
+				return nil, err
+			}
+
+			arguments = append(arguments, arg)
+
+			if !parser.match(COMMA) {
+				break
+			}
+		}
+	}
+
+	if len(arguments) >= ARGUMENTS_LIMIT {
+		LoxTokenError(parser.peek(), fmt.Sprintf("Can't have more than %v arguments", ARGUMENTS_LIMIT))
+	}
+
+	paren, err := parser.consume(RIGHT_PAREN, "Expected ')' after arguments list")
+	if err != nil {
+		return nil, err
+	}
+
+	return ExprCall{
+		Callee:    callee,
+		Paren:     paren,
+		Arguments: arguments,
+	}, nil
 }
 
 func (parser *Parser) primary() (Expr, error) {

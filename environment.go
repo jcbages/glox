@@ -4,6 +4,7 @@ import "fmt"
 
 type Environment struct {
 	Enclosing *Environment
+	Closure   *Environment
 	Values    map[string]interface{}
 }
 
@@ -36,7 +37,7 @@ func (env *Environment) Assign(token Token, value interface{}) error {
 		env.Values[token.Lexeme] = value
 		return nil
 	} else if env.Enclosing != nil {
-		return env.Assign(token, value)
+		return env.Enclosing.Assign(token, value)
 	} else {
 		return RuntimeError{
 			Token:   token,
