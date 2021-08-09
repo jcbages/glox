@@ -104,9 +104,9 @@ fun makeCounter() {
     return count
 }
 ...
-counter = makeCounter()
-counter() // 1
-counter() // 2
+counter = makeCounter();
+counter(); // 1
+counter(); // 2
 ```
 
 ## Sample code
