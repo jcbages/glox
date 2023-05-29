@@ -1,7 +1,7 @@
 # glox
 
 ## What is this?
-A Golang implementation of the 'jlox' interpreter from the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+:confetti_ball: A Golang implementation of the 'jlox' interpreter from the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## How can I use it?
 If you already installed the Go compiler in your computer, you can start using 'glox' following these steps:
