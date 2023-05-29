@@ -1,6 +1,4 @@
 # glox
-
-## What is this?
 :confetti_ball: A Golang implementation of the 'jlox' interpreter from the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## How can I use it?
