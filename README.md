@@ -1,4 +1,7 @@
 # glox
+
+[![License](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/RD17/ambar/blob/master/License.txt)
+
 :confetti_ball: A Golang implementation of the 'jlox' interpreter from the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## How can I use it?
